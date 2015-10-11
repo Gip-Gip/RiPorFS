@@ -2,18 +2,20 @@
 
 				License:
                                ==========
+The Public File License (see https://github.com/Gip-Gip/PFL for info)
 
-The Public File License
-Copyright Charles "Gip-Gip" Thompson, 2015
+Copyright Charles "Gip-Gip" Thompson, October 11th, 2015
+
 In this case, a file is a group of digital data that can be transferred and
 used.
-The copyright holder of the file ripor.c has declared that the file and
+
+The copyright holder of the file RIPOR.C has declared that the file and
 everything taken from it, unless stated otherwise, is free for any use by any
-one, with the exception of preventing the free use of the unmodified file
-and/or the unmodified file's derivatives, including but not limited
-to patenting and/or claiming further copyright on the unmodified file and/or
-the unmodified file's derivatives.
-THE FILE ripor.c IS PROVIDED WITHOUT ANY WARRANTY OR GUARANTEE AT ALL. THE
+one, with the exception of preventing the free use of the unmodified file, 
+including but not limited to patenting and/or claiming further copyright on
+the unmodified file.
+
+THE FILE RIPOR.C IS PROVIDED WITHOUT ANY WARRANTY OR GUARANTEE AT ALL. THE
 AUTHOR(S) ARE NOT LIABLE FOR CLAIMS, DAMAGES, OR REALLY ANYTHING ELSE IN
 CONNECTION TO THIS FILE, UNLESS EXPLICITLY STATED OTHERWISE.
 
@@ -280,6 +282,16 @@ MAINTYPE main(int argc, char *argv[])
 			}
 		}
 		printf(INFO_DONE);
+	}
+	else if(argc == 4 && *(argv[1]) == 'r')
+	{
+		in = fopen(argv[2], "rb");
+		if(in == NULL)
+		{
+			printf(ERROR_NOFILE);
+			return noFile;
+		}
+		
 	}
 	else if(argc == 3 && *(argv[1]) == 'v')
 	{
