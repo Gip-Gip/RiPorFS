@@ -4,7 +4,7 @@
                                ==========
 The Public File License (see https://github.com/Gip-Gip/PFL for info)
 
-Copyright Charles "Gip-Gip" Thompson, October 11th, 2015
+Copyright Charles "Gip-Gip" Thompson, October 25th, 2015
 
 In this case, a file is a group of digital data that can be transferred and
 used.
