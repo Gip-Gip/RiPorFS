@@ -1,0 +1,18 @@
+v1:
+
+RiPorFS = filesystem signature, ASCII
+ridge value 255 = filename ridge, ASCII, terminated by null
+ridge value 254 = end-of-filesystem marker
+ridge value < 254 = file data, size given by ridge
+
+v2:
+
+archive data stored in big-endian
+support for directories
+
+exp128rpfs = filesystem signature, ASCII
+ridge value 255 = end-of-filesystem marker
+ridge value 254 = filename ridge, UTF-8, terminated by null
+ridge value 253 = directory start ridge, UTF-8, terminated by null
+ridge value 252 = directory end ridge, UTF-8, terminated by null
+ridge value < 128 = file data, size given by ridge
