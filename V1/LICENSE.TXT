@@ -1,6 +1,6 @@
 The Public File License
 
-Copyright Charles "Gip-Gip" Thompson, 2015
+Copyright Charles "Gip-Gip" Thompson, October 25th, 2015
 
 In this case, a file is a group of digital data that can be transferred and
 used.
