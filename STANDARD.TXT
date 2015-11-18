@@ -1,3 +1,5 @@
+Ridge - an unsigned 8-bit integer either after the signature, after a null-terminated filename, or pointed to by another ridge.
+
 v1:
 
 RiPorFS = filesystem signature, ASCII
