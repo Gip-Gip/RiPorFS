@@ -71,5 +71,5 @@ unsigned char OEC8(unsigned char *data, int size)
 }
 
 All software examples can be used by anyone, for anything, and are
-provided without warrenty or guarentee by the author. The author
+provided without warranty or guarentee by the author. The author
 shall not be liable for any claim connected to this software.
