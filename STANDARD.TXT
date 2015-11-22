@@ -1,4 +1,5 @@
-Ridge - an unsigned 8-bit integer either after the signature, after a null-terminated filename, or pointed to by another ridge.
+Ridge - an unsigned 8-bit integer either after the signature, after a
+null-terminated filename, or pointed to by another ridge.
 
 v1:
 
@@ -9,12 +10,54 @@ ridge value < 254 = file data, size given by ridge
 
 v2:
 
-utilities must support detection and conversion of LSB and MSB data
-support for directories
+utilities must support detection and conversion of LSB and MSB data.
+support for directories.
+each ridge has a OEC8 checksum right before it, which covers the ridge
+value and it's data.
 
-exp128rpfs = filesystem signature, ASCII
-ridge value 255 = end-of-filesystem marker
-ridge value 254 = filename ridge, UTF-8, terminated by null
-ridge value 253 = directory start ridge, UTF-8, terminated by null
-ridge value 252 = directory end ridge
-ridge value < 128 = file data, size given by ridge
+exp128rpfs = filesystem signature, ASCII.
+
+ridge value...
+ 255 = end-of-filesystem marker
+ 254 = filename ridge, UTF-8, terminated by null
+ 253 = directory start ridge, UTF-8, terminated by null
+ 252 = directory end ridge
+ 251 = timestamp, base 255, in Unix Time, termianted by null
+ < 128 = file data, size given by ridge value
+
+OEC8 checksum C example:
+
+unsigned char OEC8(unsigned char *data, int size)
+{
+    unsigned char checksum = 0;
+    int cursor = 0;
+    while(cursor < size)
+    {
+        if(*(data + cursor) & 1 == 1)
+        {
+            unsigned char dataClone = *(data + cursor);
+            while(dataClone > 0)
+            {
+                if(checksum == 255) checksum = 0;
+                checksum ++;
+                dataClone --;
+            }
+        }
+        else if(checksum > 0)
+        {
+            unsigned char dataClone = *(data + cursor);
+            while(dataClone > 0)
+            {
+                if(checksum == 0) checksum = 255;
+                checksum --;
+                dataClone --;
+            }
+        }
+        cursor ++;
+    }
+    return checksum;
+}
+
+All software examples can be used by anyone, for anything, and are
+provided without warrenty or guarentee by the author. The author
+shall not be liable for any claim connected to this software.
