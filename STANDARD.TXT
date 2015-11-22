@@ -41,11 +41,13 @@ unsigned char OEC8(unsigned char *data, int size)
 {
     unsigned char checksum = 0;
     int cursor = 0;
+    unsigned char dataClone;
     while(cursor < size)
     {
-        if(*(data + cursor) & 1 == 1)
+        dataClone = *(data + cursor);
+        if(dataClone & 1 == 1)
         {
-            unsigned char dataClone = *(data + cursor);
+            dataClone = *(data + cursor);
             while(dataClone > 0)
             {
                 if(checksum == 255) checksum = 0;
@@ -55,7 +57,7 @@ unsigned char OEC8(unsigned char *data, int size)
         }
         else if(checksum > 0)
         {
-            unsigned char dataClone = *(data + cursor);
+            dataClone = *(data + cursor);
             while(dataClone > 0)
             {
                 if(checksum == 0) checksum = 255;
