@@ -32,7 +32,7 @@ ridge value...
  254 = filename ridge, UTF-8, terminated by null
  253 = directory start ridge, UTF-8, terminated by null
  252 = directory end ridge
- 251 = timestamp, base 255, in Unix Time, termianted by null
+ 251 = timestamp, UTF-8, base 10, in Unix Time, termianted by null
  < 128 = file data, size given by ridge value
 
 OEC8 checksum C example:
