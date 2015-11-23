@@ -42,27 +42,38 @@ unsigned char OEC8(unsigned char *data, int size)
     unsigned char checksum = 0;
     int cursor = 0;
     unsigned char dataClone;
+    int offsetCount;
     while(cursor < size)
     {
         dataClone = *(data + cursor);
         if(dataClone & 1 == 1)
         {
-            dataClone = *(data + cursor);
-            while(dataClone > 0)
+            offsetCount = cursor;
+            while(offsetCount > 0)
             {
-                if(checksum == 255) checksum = 0;
-                checksum ++;
-                dataClone --;
+                dataClone = *(data + cursor);
+                while(dataClone > 0)
+                {
+                    if(checksum == 255) checksum = 0;
+                    checksum ++;
+                    dataClone --;
+                }
+                offsetCount --;
             }
         }
         else if(checksum > 0)
         {
-            dataClone = *(data + cursor);
-            while(dataClone > 0)
+            offsetCount = cursor;
+            while(offsetCount > 0)
             {
-                if(checksum == 0) checksum = 255;
-                checksum --;
-                dataClone --;
+                dataClone = *(data + cursor);
+                while(dataClone > 0)
+                {
+                    if(checksum == 0) checksum = 255;
+                    checksum --;
+                    dataClone --;
+                }
+                offsetCount --;
             }
         }
         cursor ++;
