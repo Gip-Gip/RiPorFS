@@ -29,7 +29,8 @@ enum errors {
     none,
     err_fread,
     err_fwrite,
-    err_signature
+    err_signature,
+    err_malloc
 };
 
 #define BYTE unsigned char
@@ -46,20 +47,32 @@ enum errors {
 BYTE RPFS_END_OEC = RPFS_END;
 BYTE RPFS_DIE_OEC = RPFS_DIE;
 
+STR *root = NULL;
+STR *archiveName = NULL;
+
 #define RPFS_SIG "ext128rpfs"
 
-STR *archiveName;
 
-STR sigCheck[] = RPFS_SIG;
+BYTE formatData[] = {
+    /* signature                                            */
+    0x65, 0x78, 0x74, 0x31, 0x32, 0x38, 0x72, 0x70, 0x66, 0x73,
+    /* EOFS */
+    0xFF, 0xFF
+};
 
 STR pathDelimiter[] = "|";
 
-MSG startup[] = "C RiPorFS Utilities, v1.2015\n";
+MSG startup[] = "\n\
+C RiPorFS Utilities, v2.2015, run with --help for usage\n\
+Copyright Charles \"Gip-Gip\" Thompson, November 23-24th, 2015\n\
+Under the terms of the PFL. See LICENSE.TXT for details.\n\
+\n";
 MSG initializing[] = "Initializing variables...\n";
 MSG done[] = "Done!\n";
 MSG EOFSfound[] = "EOFS found!\n";
 MSG foundDir[] = "Found the directory \"%s\"!\n";
 MSG foundFile[] = "Found the file \"%s\"!\n";
+MSG writingTo[] = "Writing to %s... ";
 MSG help[] = "\n\
 USAGE:\n\
 crutil archive.file [arguments]\n\
@@ -68,11 +81,16 @@ ARGUMENTS:\n\
 \n\
 -h or --help = display this message and exit\n\
 -d / or --path-delimiter / = set the path delimiter to /\n\
+-g dir or --go-into dir = go into the directory dir\n\
+-l or --leave = go up one level in the directory tree\n\
+-f or --format = create or overwrite archive.file\n\
 -v or --veiw = veiw the files packed inside archive.file\n\
 \n";
 
 MSG archiveSet[] = "The new archive file is \"%s\"!\n";
 MSG delimiterSet[] = "The new path delimiter is \"%c\"!\n";
+MSG wentInto[] = "Went into the directory \"%s\"!\n";
+MSG backTo[] = "Back to the directory \"%s\"!\n";
 
 MSG noArchive[] = "Archive file not set!\n";
 MSG noFile[] = "File does not exist!\n";
@@ -83,6 +101,7 @@ MSG badFilename[] = "Bad Filename!\n";
 MSG mallocError[] = "Could not allocate memory!\n";
 MSG badTimestamp[] = "Bad timestamp!\n";
 MSG badDirectory[] = "Bad directory!\n";
+MSG alreadyExists[] = "File %s already exists! Should I overwrite? (y/n) ";
 
 NUM strsize = 0;
 
@@ -132,8 +151,19 @@ BYTE OEC8(BYTE *data, NUM size)
 
 NUM checkSig(FILE *in)
 {
-    if(fread(sigCheck, 1, sizeof(sigCheck) - 1, in) != sizeof(sigCheck) - 1) return err_fread;
-    if(strncmp(sigCheck, RPFS_SIG, sizeof(sigCheck))) return err_signature;
+    STR *sigCheck = malloc(sizeof(RPFS_SIG) - 1);
+    if(sigCheck == NULL) return err_malloc;
+    if(fread(sigCheck, 1, sizeof(RPFS_SIG) - 1, in) != sizeof(RPFS_SIG) - 1)
+    {
+        free(sigCheck);
+        return err_fread;
+    }
+    if(strncmp(sigCheck, RPFS_SIG, sizeof(sigCheck)))
+    {
+        free(sigCheck);
+        return err_signature;
+    }
+    free(sigCheck);
     return none;
 }
 
@@ -167,7 +197,7 @@ STR * appendStr(STR *str, STR *srcstr)
     return outstr;
 }
 
-STR * removeParentString(STR *str, STR delimiter)
+STR * sliceStr(STR *str, STR delimiter)
 {
     NUM cursor = strlen(str);
     while(*(str + cursor) != delimiter && cursor != 0)
@@ -180,6 +210,19 @@ STR * removeParentString(STR *str, STR delimiter)
     strcpy(outstr, str);
     free(str);
     return outstr;
+}
+
+void goToDir( STR *name )
+{
+    root = appendStr(root, name);
+    root = appendStr(root, pathDelimiter);
+}
+
+void leaveDir( void )
+{
+    root = sliceStr(root, *pathDelimiter);
+    root = sliceStr(root, *pathDelimiter);
+    root = appendStr(root, pathDelimiter);
 }
 
 NUM veiw()
@@ -213,10 +256,6 @@ NUM veiw()
     NUM EOFStrue = 0;
 
     NUM ridgeCount = 0;
-    
-    STR *root = malloc(strlen(archiveName) + 1);
-    strcpy(root, archiveName);
-    root = appendStr(root, pathDelimiter);
     
     STR * fullName = NULL;
     
@@ -277,8 +316,7 @@ NUM veiw()
                     return 0;
                 }
                 
-                root = appendStr(root, (dataBuffer + 1));
-                root = appendStr(root, pathDelimiter);
+                goToDir((dataBuffer + 1));
                 
                 printf(foundDir, root);
                 free(dataBuffer);
@@ -289,9 +327,7 @@ NUM veiw()
                     printf(badOEC, ridgeCount);
                     return 0;
                 }
-                root = removeParentString(root, pathDelimiter[0]);
-                root = removeParentString(root, pathDelimiter[0]);
-                root = appendStr(root, pathDelimiter);
+                leaveDir();
                 break;
             case RPFS_TIM:
                 fseek(archiveFile, -1, SEEK_CUR);
@@ -347,6 +383,35 @@ NUM veiw()
     return 0;
 }
 
+NUM format()
+{
+    FILE *archiveFile = fopen(archiveName, "r");
+    if(archiveFile != NULL)
+    {
+        fclose(archiveFile);
+        printf(alreadyExists, archiveName);
+        STR feedback = '?';
+        scanf("%c", &feedback);
+        if(feedback != 'y' && feedback != 'Y') return none;
+    }
+    archiveFile = fopen(archiveName, "wb");
+    
+    printf(writingTo, archiveName);
+    
+    if(fwrite(formatData, 1, sizeof(formatData), archiveFile) != 
+        sizeof(formatData))
+    {
+        printf(fileIOerror);
+        if(archiveFile != NULL) fclose(archiveFile);
+        return none;
+    }
+    
+    printf(done);
+    
+    fclose(archiveFile);
+    return none;
+}
+
 /* Initialize all the required globals, along with a few more things */
 NUM initialize()
 {
@@ -378,6 +443,28 @@ NUM main(NUM argc, char *argv[])
             printf(delimiterSet, *pathDelimiter);
         }
         
+        else if(!strcmp(argv[argumentNum], "-f") ||
+            !strcmp(argv[argumentNum], "--format"))
+        {
+            if(archiveName != NULL) format();
+            else printf(noArchive);
+        }
+        
+        else if(!strcmp(argv[argumentNum], "-g") ||
+            !strcmp(argv[argumentNum], "--go-into"))
+        {
+            argumentNum ++;
+            goToDir(argv[argumentNum]);
+            printf(wentInto, root);
+        }
+        
+        else if(!strcmp(argv[argumentNum], "-l") ||
+            !strcmp(argv[argumentNum], "--leave"))
+        {
+            leaveDir();
+            printf(backTo, root);
+        }
+        
         else if(!strcmp(argv[argumentNum], "-v") || 
             !strcmp(argv[argumentNum], "--veiw"))
         {
@@ -388,6 +475,10 @@ NUM main(NUM argc, char *argv[])
         else
         {
             archiveName = argv[argumentNum];
+            if(root != NULL) free(root);
+            root = malloc(strlen(archiveName) + 1);
+            strcpy(root, archiveName);
+            root = appendStr(root, pathDelimiter);
             printf(archiveSet, archiveName);
         }
         argumentNum ++;
