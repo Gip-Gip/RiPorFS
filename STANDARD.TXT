@@ -11,14 +11,14 @@ permission.
 Ridge - an unsigned 8-bit integer either after the signature, after a
 null-terminated filename, or pointed to by another ridge.
 
-v1:
+v1: *FINISHED*
 
 RiPorFS = filesystem signature, ASCII
 ridge value 255 = filename ridge, ASCII, terminated by null
 ridge value 254 = end-of-filesystem marker
 ridge value < 254 = file data, size given by ridge
 
-v2:
+v2: *IN DEVELOPMENT*
 
 utilities must support detection and conversion of LSB and MSB data.
 support for directories.
