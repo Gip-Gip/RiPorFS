@@ -1,0 +1,5 @@
+The authors of the RiPorFS standard include:
+Charles "Gip-Gip" Thompson, Creator
+
+The authors of th C RiPorFS UTILity include:
+Charles "Gip-Gip" Thompson, Creator
