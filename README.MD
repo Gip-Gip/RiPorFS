@@ -2,9 +2,7 @@
 
 ***What Is It?***
 
-The Ridged Portable File System, RiPorFS, is designed to be a solid FAT
-replacement. Like FAT, it's slow, limited, and ugly, but it is designed not to
-be limited by size.
+The Ridged Portable File System, RiPorFS, is an archive format/ file system that was designed to not be limited by the standard itself. It was originally designed to be a replacement for FAT, but I found more use of it storing media than as a general-use replacement file system.
 
 ***The Utilities Provided***
 
