@@ -2,14 +2,14 @@
 
 The Public File License (see https://github.com/Gip-Gip/PFL for info)
 
-Copyright Charles "Gip-Gip" Thompson, November 23, 2015
+Copyright Charles "Gip-Gip" Thompson, December 18th, 2015
 
 In this case, a file is a group of digital data that can be transferred and
 used.
 
 The copyright holder of the file crutil.c has declared that the file and
 everything taken from it, unless stated otherwise, is free for any use by any
-one, with the exception of preventing the free use of the unmodified file, 
+one, with the exception of preventing the free use of the unmodified file,
 including but not limited to patenting and/or claiming further copyright on
 the unmodified file.
 
@@ -19,470 +19,350 @@ CONNECTION TO THIS FILE, UNLESS EXPLICITLY STATED OTHERWISE.
 
 */
 
-/* -- USEFUL COMMENTS COMING IN THE NEXT CENTURY OR SO -- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-enum errors {
-    none,
-    err_fread,
-    err_fwrite,
-    err_signature,
-    err_malloc
-};
+/* The common types used in place of int, char, and so on */
 
 #define BYTE unsigned char
-#define MSG const char
 #define STR char
+#define MSG const char
 #define NUM int
 
-#define RPFS_END 0xFF
-#define RPFS_FIL 0xFE
-#define RPFS_DIS 0xFD
-#define RPFS_DIE 0xFC
-#define RPFS_TIM 0xFB
+/* The size definitions. These should stay the same, but we can never tell what
+    the new C standard will describe */
 
-BYTE RPFS_END_OEC = RPFS_END;
-BYTE RPFS_DIE_OEC = RPFS_DIE;
+#define BYTE_SZ sizeof(BYTE)
+#define STR_SZ sizeof(STR)
+#define MSG_SZ sizeof(MSG)
+#define NUM_SZ sizeof(NUM)
+#define SIG_SZ 10
 
-STR *root = NULL;
-STR *archiveName = NULL;
+/* RPFS declarations */
 
 #define RPFS_SIG "ext128rpfs"
 
+/* The minimum value argc can have */
 
-BYTE formatData[] = {
-    /* signature                                            */
-    0x65, 0x78, 0x74, 0x31, 0x32, 0x38, 0x72, 0x70, 0x66, 0x73,
-    /* EOFS */
-    0xFF, 0xFF
+#define MINARGC 1
+
+/* The special types for main, argv, and argc */
+
+#define MAIN int main
+#define ARGV char *argv[]
+#define ARGC int argc
+
+/* The paremeters to certian functions, such as fopen */
+
+#define READMODE "rb" /* The mode used by fopen to open read-only files */
+
+/* The return values */
+
+enum retvals {
+    none, /* When there is no error */
+    err_unknown, /* When we don't know the error */
+    err_noparms, /* When there are no paremeters given */
+    err_filednopen, /* When a file didn't open */
+    err_nosig, /* When the archive doesn't have a good signature */
+    err_malloc, /* When we can't allocate memory */
+    err_fread /* When we can't read the file */
 };
 
-STR pathDelimiter[] = "|";
+/* The regular messages */
 
-MSG startup[] = "\n\
-C RiPorFS Utilities, v2.2015, run with --help for usage\n\
-Copyright Charles \"Gip-Gip\" Thompson, November 23-24th, 2015\n\
-Under the terms of the PFL. See LICENSE.TXT for details.\n\
+MSG msg_splash[] = "\n\
+The C RiPorFS Utility, v3.2015. Run with --help for a quick guide\n\
 \n";
-MSG initializing[] = "Initializing variables...\n";
-MSG done[] = "Done!\n";
-MSG EOFSfound[] = "EOFS found!\n";
-MSG foundDir[] = "Found the directory \"%s\"!\n";
-MSG foundFile[] = "Found the file \"%s\"!\n";
-MSG writingTo[] = "Writing to %s... ";
-MSG help[] = "\n\
+
+MSG msg_help[] = "\n\
 USAGE:\n\
-crutil archive.file [arguments]\n\
 \n\
-ARGUMENTS:\n\
+crutil archive.file (arguments)\n\
 \n\
--h or --help = display this message and exit\n\
--d / or --path-delimiter / = set the path delimiter to /\n\
--g dir or --go-into dir = go into the directory dir\n\
--l or --leave = go up one level in the directory tree\n\
--f or --format = create or overwrite archive.file\n\
--v or --veiw = veiw the files packed inside archive.file\n\
+argument \"-v\" or \"--veiw\" displays the contents of archive.file\n\
+\n\
+*because of the way crutil handles arguments, you can put multiple arguments\n\
+ and archives in a simgle command. for example:\n\
+\n\
+ crutil archive.file -v -f file -v\n\
+\n\
+ would display the contents of archive.file, add a file to archive.file, and\n\
+ then display the archive file with the new file inside of it.\n\
 \n";
 
-MSG archiveSet[] = "The new archive file is \"%s\"!\n";
-MSG delimiterSet[] = "The new path delimiter is \"%c\"!\n";
-MSG wentInto[] = "Went into the directory \"%s\"!\n";
-MSG backTo[] = "Back to the directory \"%s\"!\n";
+MSG msg_archset[] = "The archive file is now \"%s\"!\n";
+MSG msg_sigcheckin[] = "Checking %s's RiPorFS signature...\n";
+MSG msg_validsig[] = "Valid signature!\n";
+MSG msg_done[] = "Done!\n";
 
-MSG noArchive[] = "Archive file not set!\n";
-MSG noFile[] = "File does not exist!\n";
-MSG badSig[] = "Bad signature!\n";
-MSG fileIOerror[] = "File I/O error!\n";
-MSG badOEC[] = "Bad OEC! Check @ ridge %d";
-MSG badFilename[] = "Bad Filename!\n";
-MSG mallocError[] = "Could not allocate memory!\n";
-MSG badTimestamp[] = "Bad timestamp!\n";
-MSG badDirectory[] = "Bad directory!\n";
-MSG alreadyExists[] = "File %s already exists! Should I overwrite? (y/n) ";
+/* The error messages */
 
-NUM strsize = 0;
+MSG errmsg_noargs[] = "No arguments provided!\n";
+MSG errmsg_archnotset[] = "The archive file has not been specified!\n";
+MSG errmsg_filednopen[] = "Could not open \"%s\"!\n";
+MSG errmsg_malloc[] = "Could not allocate enough memory!\n";
+MSG errmsg_fread[] = "Could not read from %s!\n";
+MSG errmsg_nosig[] = "The signature is invalid!\n";
+MSG errmsg_unknown[] = "An unknown error has occured!!!\n";
 
-BYTE OEC8(BYTE *data, NUM size)
+/* The globals! */
+
+STR *archiveName = NULL;
+FILE *archiveFile = NULL;
+
+/* The functions! */
+
+/* void swapSB(BYTE *_dta_, NUM _sz_) - convert the LSB data to MSB data and
+                                        vice versa, at the pointer _dta_
+
+VARIABLES:
+
+  BYTE *_dta_ - the data being converted
+  NUM _sz_ - the size of the data being converted
+
+  BYTE _invdta_ - the variable used for inverting the data
+  NUM _off_ - the variable that holds the offset to the data being converted
+
+*/
+
+void swapSB(BYTE *_dta_, NUM _sz_)
 {
-    BYTE checksum = 0;
-    NUM cursor = 0;
-    BYTE dataClone;
-    NUM offsetCount;
-    while(cursor < size)
+    BYTE _invdta_ = 0;
+    NUM _off_ = 0;
+
+    /* While the data offset is less than the size of the data... */
+    while(_off_ < _sz_)
     {
-        dataClone = *(data + cursor);
-        if(dataClone & 1 == 1)
-        {
-            offsetCount = cursor;
-            while(offsetCount > 0)
-            {
-                dataClone = *(data + cursor);
-                while(dataClone > 0)
-                {
-                    if(checksum == 255) checksum = 0;
-                    checksum ++;
-                    dataClone --;
-                }
-                offsetCount --;
-            }
-        }
-        else if(checksum > 0)
-        {
-            offsetCount = cursor;
-            while(offsetCount > 0)
-            {
-                dataClone = *(data + cursor);
-                while(dataClone > 0)
-                {
-                    if(checksum == 0) checksum = 255;
-                    checksum --;
-                    dataClone --;
-                }
-                offsetCount --;
-            }
-        }
-        cursor ++;
+        /* Set the invert variable to zero */
+        _invdta_ = 0;
+
+        /* Add numbers to the invert variable in relation to AND results */
+        if((*(_dta_ + _off_) & 1) == 1) _invdta_ += 128;
+        if((*(_dta_ + _off_) & 2) == 2) _invdta_ += 64;
+        if((*(_dta_ + _off_) & 4) == 4) _invdta_ += 32;
+        if((*(_dta_ + _off_) & 8) == 8) _invdta_ += 16;
+        if((*(_dta_ + _off_) & 16) == 16) _invdta_ += 8;
+        if((*(_dta_ + _off_) & 32) == 32) _invdta_ += 4;
+        if((*(_dta_ + _off_) & 64) == 64) _invdta_ += 2;
+        if((*(_dta_ + _off_) & 128) == 128) _invdta_ += 1;
+
+        /* Set the data at the offset to the invert variable */
+        *(_dta_ + _off_) = _invdta_;
+
+        /* Increment the offsetr */
+        _off_ ++;
     }
-    return checksum;
 }
 
-NUM checkSig(FILE *in)
+/* void closeAGfiles( void ) - close all (hard coded) global files */
+
+void closeAGfiles( void )
 {
-    STR *sigCheck = malloc(sizeof(RPFS_SIG) - 1);
-    if(sigCheck == NULL) return err_malloc;
-    if(fread(sigCheck, 1, sizeof(RPFS_SIG) - 1, in) != sizeof(RPFS_SIG) - 1)
-    {
-        free(sigCheck);
-        return err_fread;
-    }
-    if(strncmp(sigCheck, RPFS_SIG, sizeof(sigCheck)))
-    {
-        free(sigCheck);
-        return err_signature;
-    }
-    free(sigCheck);
-    return none;
-}
-
-STR * fmakestr(BYTE term, FILE *data)
-{
-    BYTE buffer = '0';
-    strsize = 0;
-    while(buffer != term)
-    {
-        if(fread(&buffer, 1, 1, data) != 1) return NULL;
-        strsize ++;
-    }
-    fseek(data, -strsize, SEEK_CUR);
-    STR *outstr = malloc(strsize);
-    if(outstr == NULL) return NULL;
-    if(fread(outstr, 1, strsize, data) != strsize)
-    {
-        free(outstr);
-        return NULL;
-    }
-    
-    return outstr;
-}
-
-STR * appendStr(STR *str, STR *srcstr)
-{
-    STR * outstr = malloc(strlen(str) + strlen(srcstr) + 1);
-    strcpy(outstr, str);
-    strcat(outstr, srcstr);
-    free(str);
-    return outstr;
-}
-
-STR * sliceStr(STR *str, STR delimiter)
-{
-    NUM cursor = strlen(str);
-    while(*(str + cursor) != delimiter && cursor != 0)
-    {
-        cursor --;
-    }
-    if(cursor == 0) return str;
-    *(str + cursor) = 0;
-    STR * outstr = malloc(strlen(str) + 1);
-    strcpy(outstr, str);
-    free(str);
-    return outstr;
-}
-
-void goToDir( STR *name )
-{
-    root = appendStr(root, name);
-    root = appendStr(root, pathDelimiter);
-}
-
-void leaveDir( void )
-{
-    root = sliceStr(root, *pathDelimiter);
-    root = sliceStr(root, *pathDelimiter);
-    root = appendStr(root, pathDelimiter);
-}
-
-NUM veiw()
-{
-    FILE *archiveFile = fopen(archiveName, "rb");
-    if(archiveFile == NULL)
-    {
-        printf(noFile);
-        return 0;
-    }
-    
-    NUM sigState = checkSig(archiveFile);
-
-    if(sigState == err_signature)
-    {
-        printf(badSig);
-        return 0;
-    }
-    
-    if(sigState == err_fread)
-    {
-        printf(fileIOerror);
-        return 0;
-    }
-
-    BYTE dataChecksum = 0;
-    BYTE ridge = 0;
-
-    BYTE *dataBuffer = NULL;
-
-    NUM EOFStrue = 0;
-
-    NUM ridgeCount = 0;
-    
-    STR * fullName = NULL;
-    
-    while(fread(&dataChecksum, 1, 1, archiveFile) == 1 && EOFStrue == 0)
-    {
-        fread(&ridge, 1, 1, archiveFile);
-        switch(ridge)
-        {
-            case RPFS_END:
-                if(dataChecksum != 255)
-                {
-                    printf(badOEC, ridgeCount);
-                    free(dataBuffer);
-                    return 0;
-                }
-                printf(EOFSfound);
-                EOFStrue = 1;
-                break;
-            case RPFS_FIL:
-                fseek(archiveFile, -1, SEEK_CUR);
-                dataBuffer = fmakestr(0, archiveFile);
-                
-                if(dataBuffer == NULL)
-                {
-                    printf(badFilename);
-                    return 0;
-                }
-                
-                if(OEC8(dataBuffer, strsize) != dataChecksum)
-                {
-                    printf(badOEC, ridgeCount);
-                    free(dataBuffer);
-                    return 0;
-                }
-                
-                fullName = malloc(strlen(root) + 1);
-                strcpy(fullName, root);
-                fullName = appendStr(fullName, (dataBuffer + 1));
-                
-                printf(foundFile, fullName);
-                free(dataBuffer);
-                free(fullName);
-                break;
-            case RPFS_DIS:
-                fseek(archiveFile, -1, SEEK_CUR);
-                dataBuffer = fmakestr(0, archiveFile);
-                
-                if(dataBuffer == NULL)
-                {
-                    printf(badDirectory);
-                    return 0;
-                }
-                
-                if(OEC8(dataBuffer, strsize) != dataChecksum)
-                {
-                    printf(badOEC, ridgeCount);
-                    free(dataBuffer);
-                    return 0;
-                }
-                
-                goToDir((dataBuffer + 1));
-                
-                printf(foundDir, root);
-                free(dataBuffer);
-                break;
-            case RPFS_DIE:
-                if(dataChecksum != RPFS_DIE_OEC)
-                {
-                    printf(badOEC, ridgeCount);
-                    return 0;
-                }
-                leaveDir();
-                break;
-            case RPFS_TIM:
-                fseek(archiveFile, -1, SEEK_CUR);
-                dataBuffer = fmakestr(0, archiveFile);
-
-                if(dataBuffer == NULL)
-                {
-                    printf(badTimestamp);
-                    return 0;
-                }
-
-                if(OEC8(dataBuffer, strsize) != dataChecksum)
-                {
-                    printf(badOEC, ridgeCount);
-                    free(dataBuffer);
-                    return 0;
-                }
-
-                printf("The following files were created %s Unix time\n"
-                    , (dataBuffer + 1));
-                free(dataBuffer);
-                break;
-            default:
-                dataBuffer = malloc(ridge + 1);
-                if(dataBuffer == NULL)
-                {
-                    printf(mallocError);
-                    return 0;
-                }
-
-                fseek(archiveFile, -1, SEEK_CUR);
-                
-                if(fread(dataBuffer, 1, ridge + 1, archiveFile) != ridge + 1)
-                {
-                    printf(fileIOerror);
-                    free(dataBuffer);
-                    return 0;
-                }
-                
-                if(OEC8(dataBuffer, ridge + 1) != dataChecksum)
-                {
-                    printf(badOEC, ridgeCount);
-                    free(dataBuffer);
-                    return 0;
-                }
-                free(dataBuffer);
-                break;
-        }
-        ridgeCount ++;
-    }
-    
-    fclose(archiveFile);
-    return 0;
-}
-
-NUM format()
-{
-    FILE *archiveFile = fopen(archiveName, "r");
+    /* If the archiveFile file is open(not null...) */
     if(archiveFile != NULL)
     {
+        /* Close archiveFile... */
         fclose(archiveFile);
-        printf(alreadyExists, archiveName);
-        STR feedback = '?';
-        scanf("%c", &feedback);
-        if(feedback != 'y' && feedback != 'Y') return none;
+
+        /* and set it to null */
+        archiveFile = NULL;
     }
-    archiveFile = fopen(archiveName, "wb");
-    
-    printf(writingTo, archiveName);
-    
-    if(fwrite(formatData, 1, sizeof(formatData), archiveFile) != 
-        sizeof(formatData))
+}
+
+/* NUM checkSig(FILE *_arf_) - check for the RiPorFS signature in the file
+                               _arf_.
+
+VARIABLES:
+
+  FILE *_arf_ - the archive file to check the signature of
+
+  STR sigBuff - the buffer that holds the signature
+
+*/
+
+NUM checkSig(FILE *_arf_)
+{
+    STR *sigBuff = malloc(SIG_SZ);
+
+    /* If the signature buffer was not alloctated, return err_malloc */
+    if(sigBuff == NULL) return err_malloc;
+
+    /* If there is a comfirmed fread error,
+        free sigBuff and return err_fread */
+    if(fread(sigBuff, BYTE_SZ, SIG_SZ, _arf_) != SIG_SZ && ferror(_arf_))
     {
-        printf(fileIOerror);
-        if(archiveFile != NULL) fclose(archiveFile);
+        free(sigBuff);
+        return err_fread;
+    }
+
+    /* If the string read into the signature buffer is equal to the
+       archive signature, frees sigBuff and return no errors */
+
+    if(!strncmp(sigBuff, RPFS_SIG, SIG_SZ))
+    {
+        free(sigBuff);
         return none;
     }
-    
-    printf(done);
-    
-    fclose(archiveFile);
-    return none;
-}
 
-/* Initialize all the required globals, along with a few more things */
-NUM initialize()
-{
-    printf(initializing);
-    RPFS_END_OEC = OEC8(&RPFS_END_OEC, 1);
-    RPFS_DIE_OEC = OEC8(&RPFS_DIE_OEC, 1);
-    return none;
-}
+    /* Else, we have to check if the bits are ordered differently... */
 
-NUM main(NUM argc, char *argv[])
-{
-    printf(startup);
-    initialize();
-    NUM argumentNum = 1;
-    while(argumentNum < argc)
+    /* Swap the SB! */
+    swapSB(sigBuff, SIG_SZ);
+
+    /* If that worked, free sigBuff and return no errors */
+    if(!strncmp(sigBuff, RPFS_SIG, SIG_SZ))
     {
-        if(!strcmp(argv[argumentNum], "-h") || \
-            !strcmp(argv[argumentNum], "--help"))
+        free(sigBuff);
+        return none;
+    }
+
+    /* If that still isn't the case, then there's no signature! */
+
+    free(sigBuff);
+    return err_nosig;
+}
+
+/* NUM veiw( void ) - prints the contents of the archive file given in
+                      archiveName.
+*/
+
+NUM veiw( void )
+{
+    FILE *archiveFile = fopen(archiveName, READMODE);
+
+    /* if the archive file could not be opened... */
+    if(archiveFile == NULL)
+    {
+        /* print the error message... */
+        printf(errmsg_filednopen, archiveName);
+
+        /* and return err_filednopen */
+        return err_filednopen;
+    }
+
+    /* Tell the veiwer we are checking the archive's signature... */
+    printf(msg_sigcheckin, archiveName);
+
+    /* Get the outcome of the signature check */
+    switch(checkSig(archiveFile))
+    {
+        case err_malloc: /* If checkSig couldn't allocate memory,
+            print the malloc error, close all global files,
+            and return err_malloc */
+            printf(errmsg_malloc);
+            closeAGfiles();
+            return err_malloc;
+            break;
+
+        case err_fread: /* If checkSig couldn't read the file,
+            print the fread error, close all global files,
+            and return err_fread */
+            printf(errmsg_fread, archiveName);
+            closeAGfiles();
+            return err_fread;
+            break;
+
+        case err_nosig: /* If the signature wasn't detected,
+            print the no signature error, close all global files,
+            and return err_nosig */
+            printf(errmsg_nosig);
+            closeAGfiles();
+            return err_nosig;
+            break;
+
+        case none: /* If the signature is valid, print the valid sig message */
+            printf(msg_validsig);
+            break;
+
+        default: /* If the return value isn't here,
+            print the unknown error message, close all global files,
+            and return err_unknown */
+            printf(errmsg_unknown);
+            closeAGfiles();
+            return err_unknown;
+            break;
+    }
+
+    /* We have reached the end of veiw, so there were no errors! */
+
+    /* close all the global files... */
+    closeAGfiles();
+
+    /* and return no errors! */
+    return none;
+}
+
+/* MAIN - prints the startup message and interprets the command line
+          arguments. If there are no arguments, it returns err_noparms
+
+VARIABLES:
+
+  ARGV - A pre-defined argv. An array that containes the command line arguments
+  ARGC - A pre-defined argc. A number which holds the amount of arguments
+
+  NUM argn - the number used for navigating argv
+
+*/
+
+MAIN (ARGC, ARGV)
+{
+    /* Since argc is not normally zero(I would bet it's never zero),
+        we have to set argn to the minimum value argc can be */
+
+    NUM argn = MINARGC;
+
+    /* Print the splash! */
+    printf(msg_splash);
+
+    /* If for some reason there are no arguments... */
+    if(argn == argc)
+    {
+        /* Just print the error and return err_noparms */
+        printf(errmsg_noargs);
+        return err_noparms;
+    }
+
+    /* Here, we go though all the arguments and interpret them */
+    while(argn < argc)
+    {
+        /* If the argument is -h or --help... */
+        if(!strcmp(argv[argn], "-h") || !strcmp(argv[argn], "--help"))
         {
-            printf(help);
-            return 0;
+            /* print the help message ... */
+            printf(msg_help);
+
+            /* and since there were no errors, return none */
+            return none;
         }
-        
-        if(!strcmp(argv[argumentNum], "-d") ||
-            !strcmp(argv[argumentNum], "--path-delimiter"))
+
+        /* If the argument is -v or --veiw... */
+        if(!strcmp(argv[argn], "-v") || !strcmp(argv[argn], "--veiw"))
         {
-            argumentNum ++;
-            pathDelimiter[0] = *argv[argumentNum];
-            printf(delimiterSet, *pathDelimiter);
-        }
-        
-        else if(!strcmp(argv[argumentNum], "-f") ||
-            !strcmp(argv[argumentNum], "--format"))
-        {
-            if(archiveName != NULL) format();
-            else printf(noArchive);
-        }
-        
-        else if(!strcmp(argv[argumentNum], "-g") ||
-            !strcmp(argv[argumentNum], "--go-into"))
-        {
-            argumentNum ++;
-            goToDir(argv[argumentNum]);
-            printf(wentInto, root);
-        }
-        
-        else if(!strcmp(argv[argumentNum], "-l") ||
-            !strcmp(argv[argumentNum], "--leave"))
-        {
-            leaveDir();
-            printf(backTo, root);
-        }
-        
-        else if(!strcmp(argv[argumentNum], "-v") || 
-            !strcmp(argv[argumentNum], "--veiw"))
-        {
+            /* Call the veiw function if the global archiveName has been set */
             if(archiveName != NULL) veiw();
-            else printf(noArchive);
+
+            /* else, print a soft-error */
+            else printf(errmsg_archnotset);
         }
-        
+
+        /* if no arguments are detected,
+            assume it is the archive's name being specified */
+
         else
         {
-            archiveName = argv[argumentNum];
-            if(root != NULL) free(root);
-            root = malloc(strlen(archiveName) + 1);
-            strcpy(root, archiveName);
-            root = appendStr(root, pathDelimiter);
-            printf(archiveSet, archiveName);
+            /* set the global archiveName to the argument... */
+            archiveName = argv[argn];
+
+            /* and print the name */
+            printf(msg_archset, archiveName);
         }
-        argumentNum ++;
+
+        /* Increment argn to go though argv */
+        argn ++;
     }
-    printf(done);
-    return 0;
+
+    /* Since the program has reached the end of main, there where no errors! */
+    printf(msg_done);
+    return none;
 }
