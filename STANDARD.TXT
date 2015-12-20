@@ -21,8 +21,10 @@ ridge value < 254 = file data, size given by ridge
 v2: *IN DEVELOPMENT*
 
 utilities must support detection and conversion of LSB and MSB data.
+
 support for directories.
-each ridge has a OEC8 checksum right before it, which covers the ridge
+
+each ridge has a OMC8 checksum right before it, which covers the ridge
 value and it's data.
 
 exp128rpfs = filesystem signature, ASCII.
@@ -35,48 +37,33 @@ ridge value...
  251 = timestamp, UTF-8, base 10, in Unix Time, termianted by null
  < 128 = file data, size given by ridge value
 
-OEC8 checksum C example:
+OMC8 checksum C example:
 
-unsigned char OEC8(unsigned char *data, int size)
+unsigned char OMC8(unsigned char *data, int size)
 {
     unsigned char checksum = 0;
-    int cursor = 0;
-    unsigned char dataClone;
-    int offsetCount;
-    while(cursor < size)
+    int offset = 0;
+    int incrementer = 0;
+    int multiplier = 0;
+    
+    while(offset < size)
     {
-        dataClone = *(data + cursor);
-        if(dataClone & 1 == 1)
+        while(multiplier < offset)
         {
-            offsetCount = cursor;
-            while(offsetCount > 0)
+            incrementer = *(data + offset);
+            while(incrementer != 0)
             {
-                dataClone = *(data + cursor);
-                while(dataClone > 0)
-                {
-                    if(checksum == 255) checksum = 0;
-                    checksum ++;
-                    dataClone --;
-                }
-                offsetCount --;
+                checksum ++;
+                incrementer --;
+                
+                if(checksum == 255) checksum = 0;
             }
+            
+            multiplier ++;
         }
-        else if(checksum > 0)
-        {
-            offsetCount = cursor;
-            while(offsetCount > 0)
-            {
-                dataClone = *(data + cursor);
-                while(dataClone > 0)
-                {
-                    if(checksum == 0) checksum = 255;
-                    checksum --;
-                    dataClone --;
-                }
-                offsetCount --;
-            }
-        }
-        cursor ++;
+        
+        multiplier = 0;
+        offset ++;
     }
     return checksum;
 }
