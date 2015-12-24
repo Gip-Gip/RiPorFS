@@ -11,6 +11,39 @@ permission.
 Ridge - an unsigned 8-bit integer either after the signature, after a
 null-terminated filename, or pointed to by another ridge.
 
+
+RiPorFS FILE STRUCTURE(v1)
+
+[signature(7 bytes in length)]
+[ridges]
+[eofs ridge(1 byte)]
+
+RIDGE STRUCTURE(v1)
+
+[ridge value(1 byte)]
+
+RIDGE STRUCTURE(v1)(file data)
+
+[ridge value(1 byte)]
+[ridge data (size equal to ridge value)]
+
+RiPorFS FILE STRUCTURE(v2)
+
+[signature (10 bytes)]
+[ridges]
+[eofs ridge(2 bytes)]
+
+RIDGE STRUCTURE(v2)
+
+[OMC8 checksum(1 byte)]
+[ridge value(1 byte)]
+
+RIDGE STRUCTURE(v2)(data ridge)
+
+[OMC8 checksum(1 byte)]
+[ridge value(1 byte)]
+[ridge data(size is equal to ridge value)]
+
 v1: *FINISHED*
 
 RiPorFS = filesystem signature, ASCII
@@ -20,22 +53,35 @@ ridge value < 254 = file data, size given by ridge
 
 v2: *IN DEVELOPMENT*
 
-utilities must support detection and conversion of LSB and MSB data.
+Now every ridge has to have a data ridge behind it
+(with the exeption of a few) as any non-data ridges
+only describe what the following data ridges contain.
 
-support for directories.
+Ridge value...
+ 0xFF = End of file system
+ 0xFE = UTF-8 file name
+ 0xFD = file data for previous file name
+ 0xFC = UTF-8 named directory start for following files
+ 0xFB = end previous directory
+ 0xFA = UTF-8 UNIX Time timestamp for following files
+ 0xF9 = ASCII DOS-safe file name
+ 0xF8 = ASCII UNIX permissions(Symbolic notation)
+ 0xF7 = UTF-8 UNIX user ID
+ 0xF6 = UTF-8 UNIX group ID
 
-each ridge has a OMC8 checksum right before it, which covers the ridge
-value and it's data.
+Data ridges are any ridge with a value < 128
 
-exp128rpfs = filesystem signature, ASCII.
+For example, a archive containing a single text file
+would have this layout:
 
-ridge value...
- 255 = end-of-filesystem marker
- 254 = filename ridge, UTF-8, terminated by null
- 253 = directory start ridge, UTF-8, terminated by null
- 252 = directory end ridge
- 251 = timestamp, UTF-8, base 10, in Unix Time, termianted by null
- < 128 = file data, size given by ridge value
+[signature (10 bytes; "ext128rpfs")]
+[file name ridge(2 bytes; 0xFE + 0xFE)]
+[file name (11 bytes; checksum of filename(1 byte) + filename size(1 byte) +
+    filename(9 bytes; "hello.txt"))]
+[file data ridge(2 bytes; 0xFD + 0xFD)]
+[file data (14 bytes; checksum of file data(1 byte) + file data size(1 byte) +
+    file data(12 bytes; "Hello, World"))]
+[EOFS ridge (2 bytes; 0xFF + 0xFF)]
 
 OMC8 checksum C example:
 
