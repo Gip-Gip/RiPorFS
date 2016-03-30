@@ -63,13 +63,17 @@ Ridge value...
  0xFD = file data for previous file name
  0xFC = UTF-8 named directory start for following files
  0xFB = end previous directory
- 0xFA = UTF-8 UNIX Time timestamp for following files
- 0xF9 = ASCII DOS-safe file name
- 0xF8 = ASCII UNIX permissions(Symbolic notation)
- 0xF7 = UTF-8 UNIX user ID
- 0xF6 = UTF-8 UNIX group ID
+ 0xFA = UNIX Time timestamp for the creation time of the following files
+ 0xF9 = UNIX Time timestamp for the modification time of the following files
+ 0xF8 = ASCII DOS-safe file name
+ 0xF7 = ASCII UNIX permissions(Symbolic notation)
+ 0xF6 = UTF-8 UNIX user ID
+ 0xF5 = UTF-8 UNIX group ID
 
 Data ridges are any ridge with a value < 128
+
+UNIX Time timestamps are little-endian intergers which follow the same rules as
+strings; they do not stop until a non-data ridge is detected
 
 For example, a archive containing a single text file
 would have this layout:
